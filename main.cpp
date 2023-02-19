@@ -14,16 +14,16 @@ int main(int argc, char* argv[])
     // vector of processes, processes will appear here when they are created by
     // the ProcessMgmt object (in other words, automatically at the appropriate time)
     list<Process> processList;
-    
-    // this will orchestrate process creation in our system, it will add processes to 
+
+    // this will orchestrate process creation in our system, it will add processes to
     // processList when they are created and ready to be run/managed
     ProcessManagement processMgmt(processList);
 
     // this is where interrupts will appear when the ioModule detects that an IO operation is complete
-    list<IOInterrupt> interrupts;   
+    list<IOInterrupt> interrupts;
 
     // this manages io operations and will raise interrupts to signal io completion
-    IOModule ioModule(interrupts);  
+    IOModule ioModule(interrupts);
 
     // Do not touch
     long time = 1;
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 //    processorAvailable = true;
 
     //keep running the loop until all processes have been added and have run to completion
-    while(processMgmt.moreProcessesComing()  /* TODO add something to keep going as long as there are processes that arent done! */ )
+    while(processMgmt.moreProcessesComing()  || !processList.empty())
     {
         //Update our current time step
         ++time;
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
         //init the stepAction, update below
         stepAction = noAct;
 
-        
+
         //TODO add in the code to take an appropriate action for this time step!
         //you should set the action variable based on what you do this time step. you can just copy and paste the lines below and uncomment them, if you want.
         //stepAction = continueRun;  //runnning process is still running
@@ -91,19 +91,48 @@ int main(int argc, char* argv[])
         //stepAction = admitNewProc;   //admit a new process into 'ready'
         //stepAction = handleInterrupt;   //handle an interrupt
         //stepAction = beginRun;   //start running a process
- 
-        
-
-        //   <your code here> 
 
 
 
+        //   <your code here>
+
+        //cout << "Current Process: " << processList.begin()->reqProcessorTime << endl;
+
+        switch(processList.begin()->state)
+        {
+          case ready:
+            processList.begin()->state = processing;
+            stepAction = beginRun;
+            break;
+          case processing:
+            if (processList.begin()->processorTime < processList.begin()->reqProcessorTime)
+            {
+              processList.begin()->processorTime++;
+              stepAction = continueRun;
+            }
+            else
+            {
+              processList.begin()->state = done;
+              stepAction = noAct;
+            }
+            break;
+          case blocked:
+            break;
+          case newArrival:
+            processList.begin()->state = ready;
+            stepAction = admitNewProc;
+            break;
+          case done:
+            processList.pop_front();
+            stepAction = complete;
+            break;
+        }
 
 
 
         // Leave the below alone (at least for final submission, we are counting on the output being in expected format)
-        cout << setw(5) << time << "\t"; 
-        
+        cout << setw(5) << time << "\t";
+
         switch(stepAction)
         {
             case admitNewProc:
@@ -131,6 +160,7 @@ int main(int argc, char* argv[])
 
         // You may wish to use a second vector of processes (you don't need to, but you can)
         printProcessStates(processList); // change processList to another vector of processes if desired
+
 
         this_thread::sleep_for(chrono::milliseconds(sleepDuration));
     }
