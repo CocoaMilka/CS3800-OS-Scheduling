@@ -99,23 +99,38 @@ int main(int argc, char* argv[])
 
         //   <your code here>
 
-        //cout << "Current Process: " << processList.begin()->reqProcessorTime << endl;
-
 
 
         // If a process is currently running, cannot switch task, TOP PRIORITY
         if (selectedProcess->state == processing)
         {
-          // Handle interrupts here
+          // Check for interrupts
+          if (!interrupts.empty())
+          {
+            stepAction = handleInterrupt;
+            cout << "ID: " << interrupts.front().ioEventID << endl;
+            cout << "ID: " << interrupts.front().procID << endl;
+            interrupts.pop_front();
+          }
+          // Check if process needs to request IO event
+          else if (selectedProcess->processorTime == selectedProcess->ioEvents.begin()->time)
+          {
+            ioModule.submitIORequest(time, selectedProcess->ioEvents.front(), *selectedProcess);
 
-          if (selectedProcess->processorTime < selectedProcess->reqProcessorTime)
+            selectedProcess->state = blocked;
+            stepAction = ioRequest;
+          }
+          // Otherwise Process normally
+          else if (selectedProcess->processorTime < selectedProcess->reqProcessorTime)
           {
             selectedProcess->processorTime++;
             stepAction = continueRun;
           }
+          // Once finished end task
           else
           {
             selectedProcess->state = done;
+            selectedProcess->doneTime = time;
             stepAction = complete;
           }
         }
@@ -123,6 +138,7 @@ int main(int argc, char* argv[])
         {
           selectedProcess++;
           bool checkingProcesses = true;
+
           while (checkingProcesses)
           {
             switch(selectedProcess->state)
@@ -130,11 +146,13 @@ int main(int argc, char* argv[])
               case processing:
 
                 // You shouldn't be here O_O
+                // Processing handled above
                 break;
 
               case ready:
 
                 selectedProcess->state = processing;
+                selectedProcess->processorTime++;
                 stepAction = beginRun;
 
                 checkingProcesses = false;
@@ -168,39 +186,6 @@ int main(int argc, char* argv[])
             }
           }
         }
-
-
-        /*
-        switch(processList.begin()->state)
-        {
-          case ready:
-            processList.begin()->state = processing;
-            stepAction = beginRun;
-            break;
-          case processing:
-            if (processList.begin()->processorTime < processList.begin()->reqProcessorTime)
-            {
-              processList.begin()->processorTime++;
-              stepAction = continueRun;
-            }
-            else
-            {
-              processList.begin()->state = done;
-              stepAction = noAct;
-            }
-            break;
-          case blocked:
-            break;
-          case newArrival:
-            processList.begin()->state = ready;
-            stepAction = admitNewProc;
-            break;
-          case done:
-            processList.pop_front();
-            stepAction = complete;
-            break;
-        }
-        */
 
 
 
