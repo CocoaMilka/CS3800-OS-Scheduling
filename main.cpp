@@ -59,8 +59,11 @@ int main(int argc, char* argv[])
     time = 0;
 //    processorAvailable = true;
 
+    processMgmt.activateProcesses(time);
+    list<Process>::iterator selectedProcess = processList.begin();
+
     //keep running the loop until all processes have been added and have run to completion
-    while(processMgmt.moreProcessesComing()  || !processList.empty())
+    while(processMgmt.moreProcessesComing() || true /* something might go here */)
     {
         //Update our current time step
         ++time;
@@ -98,6 +101,76 @@ int main(int argc, char* argv[])
 
         //cout << "Current Process: " << processList.begin()->reqProcessorTime << endl;
 
+
+
+        // If a process is currently running, cannot switch task, TOP PRIORITY
+        if (selectedProcess->state == processing)
+        {
+          // Handle interrupts here
+
+          if (selectedProcess->processorTime < selectedProcess->reqProcessorTime)
+          {
+            selectedProcess->processorTime++;
+            stepAction = continueRun;
+          }
+          else
+          {
+            selectedProcess->state = done;
+            stepAction = complete;
+          }
+        }
+        else
+        {
+          selectedProcess++;
+          bool checkingProcesses = true;
+          while (checkingProcesses)
+          {
+            switch(selectedProcess->state)
+            {
+              case processing:
+
+                // You shouldn't be here O_O
+                break;
+
+              case ready:
+
+                selectedProcess->state = processing;
+                stepAction = beginRun;
+
+                checkingProcesses = false;
+                break;
+
+              case blocked:
+
+                // Ignore this process
+                selectedProcess++;
+                break;
+
+              case newArrival:
+
+                selectedProcess->state = ready;
+                stepAction = admitNewProc;
+
+                checkingProcesses = false;
+                break;
+
+              case done:
+
+                // Ignore this process
+                selectedProcess++;
+                break;
+            }
+
+            // Wrap pointer back around
+            if (selectedProcess == processList.end())
+            {
+              selectedProcess = processList.begin();
+            }
+          }
+        }
+
+
+        /*
         switch(processList.begin()->state)
         {
           case ready:
@@ -127,6 +200,7 @@ int main(int argc, char* argv[])
             stepAction = complete;
             break;
         }
+        */
 
 
 
