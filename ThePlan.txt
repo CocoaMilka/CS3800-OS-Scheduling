@@ -1,7 +1,0 @@
-Okay gamers so we are faced with a rather challenging problem...
-
-We are given a list of processes that need to be processed.
-
-Goal: Iterate through process list and process each process...
-
-2 Lists, one contains currently 
