@@ -103,41 +103,25 @@ int main(int argc, char* argv[])
         //stepAction = handleInterrupt;   //handle an interrupt
         //stepAction = beginRun;   //start running a process
 
+        // Check for interrupts
+        if (!interrupts.empty())
+        {
+          stepAction = handleInterrupt;
+
+          while (interruptChecker->id != interrupts.front().procID)
+          {
+            interruptChecker++;
+          }
+          interruptChecker->state = ready;
+
+          interrupts.pop_front();
+        }
 
         // If a process is currently running, cannot switch task, TOP PRIORITY
-        if (selectedProcess->state == processing)
+        else if (selectedProcess->state == processing)
         {
-          // Check for interrupts
-          if (!interrupts.empty())
-          {
-            stepAction = handleInterrupt;
-            //cout << "ID: " << interrupts.front().ioEventID << endl;
-            //cout << "ID: " << interrupts.front().procID << endl;
-
-            //Find which process can be unblocked
-            /*
-            for (auto iter : processList)
-            {
-              if (interrupts.front().procID == iter.id)
-              {
-                //cout << "Process ID: " << it.id << endl;
-                iter.state = ready;
-                break;
-              }
-            }
-            */
-
-            while (interruptChecker->id != interrupts.front().procID)
-            {
-              interruptChecker++;
-            }
-            interruptChecker->state = ready;
-
-            interrupts.pop_front();
-          }
-
           // Check if process needs to request IO event
-          else if (selectedProcess->processorTime == selectedProcess->ioEvents.begin()->time)
+          if (selectedProcess->processorTime == selectedProcess->ioEvents.begin()->time)
           {
             ioModule.submitIORequest(time, selectedProcess->ioEvents.front(), *selectedProcess);
 
@@ -211,8 +195,9 @@ int main(int argc, char* argv[])
                 break;
 
               default:
-              
+
                 stepAction = noAct;
+                checkingProcesses = false;
                 break;
             }
 
