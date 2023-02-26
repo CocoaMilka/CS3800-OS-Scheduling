@@ -60,11 +60,19 @@ int main(int argc, char* argv[])
 //    processorAvailable = true;
 
     processMgmt.activateProcesses(time);
+
+    // Current process to be worked on
     list<Process>::iterator selectedProcess = processList.begin();
 
+    // Continue main loop until all processes have been finished
+    bool isFinished = false;
+
     //keep running the loop until all processes have been added and have run to completion
-    while(processMgmt.moreProcessesComing() || true /* something might go here */)
+    while(processMgmt.moreProcessesComing() || !isFinished)
     {
+        // Interrupt checking iterator
+        list<Process>::iterator interruptChecker = processList.begin();
+
         //Update our current time step
         ++time;
 
@@ -96,11 +104,6 @@ int main(int argc, char* argv[])
         //stepAction = beginRun;   //start running a process
 
 
-
-        //   <your code here>
-
-
-
         // If a process is currently running, cannot switch task, TOP PRIORITY
         if (selectedProcess->state == processing)
         {
@@ -108,18 +111,43 @@ int main(int argc, char* argv[])
           if (!interrupts.empty())
           {
             stepAction = handleInterrupt;
-            cout << "ID: " << interrupts.front().ioEventID << endl;
-            cout << "ID: " << interrupts.front().procID << endl;
+            //cout << "ID: " << interrupts.front().ioEventID << endl;
+            //cout << "ID: " << interrupts.front().procID << endl;
+
+            //Find which process can be unblocked
+            /*
+            for (auto iter : processList)
+            {
+              if (interrupts.front().procID == iter.id)
+              {
+                //cout << "Process ID: " << it.id << endl;
+                iter.state = ready;
+                break;
+              }
+            }
+            */
+
+            while (interruptChecker->id != interrupts.front().procID)
+            {
+              interruptChecker++;
+            }
+            interruptChecker->state = ready;
+
             interrupts.pop_front();
           }
+
           // Check if process needs to request IO event
           else if (selectedProcess->processorTime == selectedProcess->ioEvents.begin()->time)
           {
             ioModule.submitIORequest(time, selectedProcess->ioEvents.front(), *selectedProcess);
 
+            // Remove io event now that it's processing
+            selectedProcess->ioEvents.pop_front();
+
             selectedProcess->state = blocked;
             stepAction = ioRequest;
           }
+
           // Otherwise Process normally
           else if (selectedProcess->processorTime < selectedProcess->reqProcessorTime)
           {
@@ -137,6 +165,8 @@ int main(int argc, char* argv[])
         else
         {
           selectedProcess++;
+
+          // checkingProcesses will iterate through process list until it finds a process that needs handling
           bool checkingProcesses = true;
 
           while (checkingProcesses)
@@ -151,6 +181,7 @@ int main(int argc, char* argv[])
 
               case ready:
 
+                // Begin processing
                 selectedProcess->state = processing;
                 selectedProcess->processorTime++;
                 stepAction = beginRun;
@@ -166,6 +197,7 @@ int main(int argc, char* argv[])
 
               case newArrival:
 
+                // Ready up
                 selectedProcess->state = ready;
                 stepAction = admitNewProc;
 
@@ -177,13 +209,30 @@ int main(int argc, char* argv[])
                 // Ignore this process
                 selectedProcess++;
                 break;
+
+              default:
+              
+                stepAction = noAct;
+                break;
             }
+
 
             // Wrap pointer back around
             if (selectedProcess == processList.end())
             {
               selectedProcess = processList.begin();
             }
+          }
+        }
+
+        // Check if all processes have been processed
+        list<Process>::iterator processChecker = processList.begin();
+        while (processChecker->state == done)
+        {
+          processChecker++;
+          if (processChecker == processList.end() && processChecker->state == done)
+          {
+            isFinished = true;
           }
         }
 
