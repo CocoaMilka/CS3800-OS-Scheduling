@@ -66,8 +66,10 @@ int main(int argc, char* argv[])
     list<list<Process>::iterator> readyList;
     list<list<Process>::iterator> blockedList;
 
+    bool isFinished = false;
+
     //keep running the loop until all processes have been added and have run to completion
-    while(processMgmt.moreProcessesComing() || true /* TODO add something to keep going as long as there are processes that arent done! */ )
+    while(processMgmt.moreProcessesComing() || !isFinished /* TODO add something to keep going as long as there are processes that arent done! */ )
     {
 
         //Update our current time step
@@ -122,12 +124,28 @@ int main(int argc, char* argv[])
           }
         }
 
+        // Handle intrrupts if processor is not busy
         if (processorAvailable)
         {
           goto check_interrupts;
         }
 
+
         nothing_to_check:
+
+        // Terminate once all processes have been processed
+        if (readyList.empty() && blockedList.empty())
+        {
+          isFinished = true;
+          goto finished;
+        }
+
+        // Process manager for the readylist
+        if (readyList.empty())
+        {
+          stepAction = noAct;
+          goto ready_up;
+        }
 
         switch(readyList.front()->state)
         {
@@ -141,12 +159,11 @@ int main(int argc, char* argv[])
 
           case processing:
 
-            // Check if process needs IO
-            if (!readyList.front()->ioEvents.empty() && readyList.front()->processorTime + 1 == readyList.front()->ioEvents.begin()->time)
+            // Check if process needs IO, if so then send to blocked list
+            if (!readyList.front()->ioEvents.empty() && ((readyList.front()->processorTime + 1) == readyList.front()->ioEvents.begin()->time))
             {
               ioModule.submitIORequest(time, readyList.front()->ioEvents.front(), *readyList.front());
 
-              // Remove io event now that it's processing, technically don't have to do this? but makes things easier :3
               readyList.front()->ioEvents.pop_front();
 
               // Move that MFer to the blocked list
@@ -157,12 +174,14 @@ int main(int argc, char* argv[])
               stepAction = ioRequest;
               processorAvailable = true;
             }
+            // Otherwise continue processing normally
             else if (readyList.front()->processorTime + 1 < readyList.front()->reqProcessorTime)
             {
               stepAction = continueRun;
               readyList.front()->processorTime++;
               processorAvailable = false;
             }
+            // Process is done
             else
             {
               // Process Finished
@@ -176,7 +195,6 @@ int main(int argc, char* argv[])
 
           default:
 
-            //goto check_interrupts;
             stepAction = noAct;
             break;
           }
@@ -188,7 +206,7 @@ int main(int argc, char* argv[])
           check_interrupts:
 
           // Check for interrupts
-          if (!interrupts.empty())
+          if (!interrupts.empty() && !blockedList.empty())
           {
             stepAction = handleInterrupt;
 
@@ -202,6 +220,9 @@ int main(int argc, char* argv[])
 
                 //Add to readyList
                 readyList.push_back(*iter);
+
+                //Remove from blockedList
+                blockedList.erase(iter);
 
                 interrupts.pop_front();
                 break;
@@ -253,6 +274,8 @@ int main(int argc, char* argv[])
 
         this_thread::sleep_for(chrono::milliseconds(sleepDuration));
     }
+
+    finished:
 
     return 0;
 }
