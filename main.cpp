@@ -14,16 +14,16 @@ int main(int argc, char* argv[])
     // vector of processes, processes will appear here when they are created by
     // the ProcessMgmt object (in other words, automatically at the appropriate time)
     list<Process> processList;
-    
-    // this will orchestrate process creation in our system, it will add processes to 
+
+    // this will orchestrate process creation in our system, it will add processes to
     // processList when they are created and ready to be run/managed
     ProcessManagement processMgmt(processList);
 
     // this is where interrupts will appear when the ioModule detects that an IO operation is complete
-    list<IOInterrupt> interrupts;   
+    list<IOInterrupt> interrupts;
 
     // this manages io operations and will raise interrupts to signal io completion
-    IOModule ioModule(interrupts);  
+    IOModule ioModule(interrupts);
 
     // Do not touch
     long time = 1;
@@ -59,9 +59,17 @@ int main(int argc, char* argv[])
     time = 0;
 //    processorAvailable = true;
 
+
+    // Current process being managed
+    list<Process>::iterator selectedProcess;
+
+    list<list<Process>::iterator> readyList;
+    list<list<Process>::iterator> blockedList;
+
     //keep running the loop until all processes have been added and have run to completion
-    while(processMgmt.moreProcessesComing()  /* TODO add something to keep going as long as there are processes that arent done! */ )
+    while(processMgmt.moreProcessesComing() || true /* TODO add something to keep going as long as there are processes that arent done! */ )
     {
+
         //Update our current time step
         ++time;
 
@@ -82,7 +90,7 @@ int main(int argc, char* argv[])
         //init the stepAction, update below
         stepAction = noAct;
 
-        
+
         //TODO add in the code to take an appropriate action for this time step!
         //you should set the action variable based on what you do this time step. you can just copy and paste the lines below and uncomment them, if you want.
         //stepAction = continueRun;  //runnning process is still running
@@ -91,19 +99,78 @@ int main(int argc, char* argv[])
         //stepAction = admitNewProc;   //admit a new process into 'ready'
         //stepAction = handleInterrupt;   //handle an interrupt
         //stepAction = beginRun;   //start running a process
- 
-        
-
-        //   <your code here> 
 
 
+
+        //   <your code here>
+
+        // Check for new processes
+        for(auto it = processList.begin(); it != processList.end(); ++it)
+        {
+          if (it->state == newArrival)
+          {
+            stepAction = admitNewProc;
+            it->state = ready;
+
+            //Add to readyList
+            readyList.push_back(it);
+
+            goto ready_up;
+          }
+        }
+
+
+        switch(readyList.front()->state)
+        {
+          case ready:
+
+            stepAction = beginRun;
+            readyList.front()->state = processing;
+            break;
+
+          case processing:
+            if (readyList.front()->processorTime + 1 == readyList.front()->ioEvents.begin()->time)
+            {
+              ioModule.submitIORequest(time, readyList.front()->ioEvents.front(), *readyList.front());
+
+              // Remove io event now that it's processing, technically don't have to do this? but makes things easier :3
+              readyList.front()->ioEvents.pop_front();
+
+              // Move that MFer to the blocked list
+              readyList.front()->state = blocked;
+              blockedList.push_back(readyList.front());
+              readyList.pop_front();
+
+              stepAction = ioRequest;
+            }
+            else if (readyList.front()->processorTime + 1 < readyList.front()->reqProcessorTime)
+            {
+              stepAction = continueRun;
+              readyList.front()->processorTime++;
+            }
+            else
+            {
+              stepAction = complete;
+              readyList.front()->state = done;
+              readyList.pop_front();
+            }
+
+            break;
+
+          default:
+
+            stepAction = noAct;
+            break;
+          }
+
+          ready_up:
 
 
 
 
         // Leave the below alone (at least for final submission, we are counting on the output being in expected format)
-        cout << setw(5) << time << "\t"; 
-        
+        cout << setw(5) << time << "\t";
+
         switch(stepAction)
         {
             case admitNewProc:
