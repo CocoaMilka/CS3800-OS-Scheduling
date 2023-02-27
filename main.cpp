@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 
 
     time = 0;
-//    processorAvailable = true;
+    //processorAvailable = true;
 
 
     // Current process being managed
@@ -129,6 +129,7 @@ int main(int argc, char* argv[])
             break;
 
           case processing:
+
             if (readyList.front()->processorTime + 1 == readyList.front()->ioEvents.begin()->time)
             {
               ioModule.submitIORequest(time, readyList.front()->ioEvents.front(), *readyList.front());
@@ -150,6 +151,7 @@ int main(int argc, char* argv[])
             }
             else
             {
+              // Process Finished
               stepAction = complete;
               readyList.front()->state = done;
               readyList.pop_front();
@@ -159,8 +161,37 @@ int main(int argc, char* argv[])
 
           default:
 
+            goto check_interrupts;
             stepAction = noAct;
             break;
+          }
+
+          goto ready_up;
+
+          goto check_interrupts;
+
+          check_interrupts:
+
+          // Check for interrupts
+          if (!interrupts.empty())
+          {
+            stepAction = handleInterrupt;
+
+            //list<list<Process>::iterator>::iterator iter = blockedList.front();
+
+            for(auto iter = blockedList.begin(); iter != blockedList.end(); ++iter)
+            {
+              if ((**iter).id == interrupts.front().procID)
+              {
+                (**iter).state = ready;
+
+                //Add to readyList
+                readyList.push_back(*iter);
+
+                interrupts.pop_front();
+                break;
+              }
+            }
           }
 
           ready_up:
