@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 
 
     time = 0;
-    //processorAvailable = true;
+    bool processorAvailable = true;
 
 
     // Current process being managed
@@ -104,6 +104,7 @@ int main(int argc, char* argv[])
 
         //   <your code here>
 
+
         // Check for new processes
         for(auto it = processList.begin(); it != processList.end(); ++it)
         {
@@ -115,10 +116,18 @@ int main(int argc, char* argv[])
             //Add to readyList
             readyList.push_back(it);
 
+            processorAvailable = true;
+
             goto ready_up;
           }
         }
 
+        if (processorAvailable)
+        {
+          goto check_interrupts;
+        }
+
+        nothing_to_check:
 
         switch(readyList.front()->state)
         {
@@ -126,11 +135,14 @@ int main(int argc, char* argv[])
 
             stepAction = beginRun;
             readyList.front()->state = processing;
+            processorAvailable = false;
+
             break;
 
           case processing:
 
-            if (readyList.front()->processorTime + 1 == readyList.front()->ioEvents.begin()->time)
+            // Check if process needs IO
+            if (!readyList.front()->ioEvents.empty() && readyList.front()->processorTime + 1 == readyList.front()->ioEvents.begin()->time)
             {
               ioModule.submitIORequest(time, readyList.front()->ioEvents.front(), *readyList.front());
 
@@ -143,11 +155,13 @@ int main(int argc, char* argv[])
               readyList.pop_front();
 
               stepAction = ioRequest;
+              processorAvailable = true;
             }
             else if (readyList.front()->processorTime + 1 < readyList.front()->reqProcessorTime)
             {
               stepAction = continueRun;
               readyList.front()->processorTime++;
+              processorAvailable = false;
             }
             else
             {
@@ -155,13 +169,14 @@ int main(int argc, char* argv[])
               stepAction = complete;
               readyList.front()->state = done;
               readyList.pop_front();
+              processorAvailable = true;
             }
 
             break;
 
           default:
 
-            goto check_interrupts;
+            //goto check_interrupts;
             stepAction = noAct;
             break;
           }
@@ -192,6 +207,12 @@ int main(int argc, char* argv[])
                 break;
               }
             }
+
+            processorAvailable = true;
+          }
+          else
+          {
+            goto nothing_to_check;
           }
 
           ready_up:
