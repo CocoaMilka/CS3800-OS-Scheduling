@@ -153,6 +153,7 @@ int main(int argc, char* argv[])
 
             stepAction = beginRun;
             readyList.front()->state = processing;
+            readyList.front()->processorTime++;
             processorAvailable = false;
 
             break;
@@ -160,7 +161,7 @@ int main(int argc, char* argv[])
           case processing:
 
             // Check if process needs IO, if so then send to blocked list
-            if (!readyList.front()->ioEvents.empty() && ((readyList.front()->processorTime + 1) == readyList.front()->ioEvents.begin()->time))
+            if (!readyList.front()->ioEvents.empty() && ((readyList.front()->processorTime) == readyList.front()->ioEvents.begin()->time))
             {
               ioModule.submitIORequest(time, readyList.front()->ioEvents.front(), *readyList.front());
 
@@ -175,7 +176,7 @@ int main(int argc, char* argv[])
               processorAvailable = true;
             }
             // Otherwise continue processing normally
-            else if (readyList.front()->processorTime + 1 < readyList.front()->reqProcessorTime)
+            else if (readyList.front()->processorTime < readyList.front()->reqProcessorTime)
             {
               stepAction = continueRun;
               readyList.front()->processorTime++;
