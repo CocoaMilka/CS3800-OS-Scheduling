@@ -103,26 +103,26 @@ int main(int argc, char* argv[])
         //stepAction = beginRun;   //start running a process
 
 
-
-        //   <your code here>
-
-
-        // Check for new processes
-        for(auto it = processList.begin(); it != processList.end(); ++it)
+        // Check for new processes and admit them
+        if (processorAvailable == true)
         {
-          if (it->state == newArrival)
+          for(auto it = processList.begin(); it != processList.end(); ++it)
           {
-            stepAction = admitNewProc;
-            it->state = ready;
+            if (it->state == newArrival)
+            {
+              stepAction = admitNewProc;
+              it->state = ready;
 
-            //Add to readyList
-            readyList.push_back(it);
+              //Add to readyList
+              readyList.push_back(it);
 
-            processorAvailable = true;
+              processorAvailable = true;
 
-            goto ready_up;
+              goto ready_up;
+            }
           }
         }
+
 
         // Handle intrrupts if processor is not busy
         if (processorAvailable)
@@ -130,14 +130,23 @@ int main(int argc, char* argv[])
           goto check_interrupts;
         }
 
-
         nothing_to_check:
 
-        // Terminate once all processes have been processed
-        if (readyList.empty() && blockedList.empty())
+        //Check if all processes finished
+        for(auto it = processList.begin(); it != processList.end(); ++it)
         {
-          isFinished = true;
-          goto finished;
+          if (it->state == done)
+          {
+            if (next(it) == processList.end())
+            {
+              isFinished = true;
+              goto finished;
+            }
+          }
+          else
+          {
+            break;
+          }
         }
 
         // Process manager for the readylist
